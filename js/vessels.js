@@ -262,18 +262,6 @@
     leo: { name: 'Law enforcement vessel' },
   };
 
-  const TOW_PASS_Q = {
-    prompt: 'Is it safe to pass between the tug and her tow?',
-    options: [
-      'No — the towline may be hidden just under the surface',
-      'Yes, if you slow down',
-      'Yes, if the tow is longer than 200 m',
-      'Only if the tug flashes her searchlight',
-    ],
-    correct: 0,
-    explain: 'Never cross between a towing vessel and her tow. At night the towline is invisible and can sit just below the surface — a yellow towing light over the sternlight is your warning.',
-  };
-
   // ---------------------------------------------------------------- configurations
   const CONFIGS = [
     // ============ Level 1 — the basics
@@ -452,7 +440,6 @@
         { model: 'barge', z: -132.5, tow: true, lights: [...sides(6.8, 3.7, 28.5), stern(3.4, -30)] },
       ],
       towLine: true,
-      extra: TOW_PASS_Q,
     },
     {
       id: 'tow-long', answer: 'towLong', level: 2,
@@ -464,7 +451,6 @@
         { model: 'barge', z: -272.5, tow: true, lights: [...sides(6.8, 3.7, 28.5), stern(3.4, -30)] },
       ],
       towLine: true,
-      extra: TOW_PASS_Q,
     },
     {
       id: 'push-intl', answer: 'push', level: 2, rules: ['intl'],
@@ -636,8 +622,53 @@
     return CONFIGS.filter((c) => c.level <= level && (!c.rules || c.rules.includes(rules)));
   }
 
+  // ---------------------------------------------------------------- traffic mix & rated ranges
+  // Rough relative frequency of each configuration on a coastal night watch (tune freely).
+  const TRAFFIC = {
+    'power-under50': 6, 'power-under12': 6, 'power-over50': 5,
+    'sail-basic': 4, 'sail-tricolor': 3, 'sail-redgreen': 1.5,
+    'anchor-small': 3, 'anchor-large': 2,
+    'nuc-stopped': 0.3, 'nuc-moving': 0.3,
+    'trawl-moving': 3, 'fish-moving': 3, 'fish-stopped': 1.5,
+    'trawl-stopped': 1, 'trawl-large': 1.5, 'fish-gear': 1,
+    'tow-short': 2.5, 'tow-long': 1.5, 'push-intl': 1.5, 'push-inland': 2,
+    'ram-moving': 0.7, 'ram-stopped': 0.5, 'pilot-underway': 0.5, 'pilot-anchored': 0.3,
+    'aground': 0.1, 'cbd': 0.4, 'dredge': 0.2, 'mine': 0.05, 'hover': 0.05, 'leo': 0.4,
+  };
+  const trafficWeight = (cfg) => (TRAFFIC[cfg.id] != null ? TRAFFIC[cfg.id] : 1);
+
+  // Minimum luminous ranges (Rule 22), nautical miles, by vessel length in meters.
+  function ratedNm(l, len) {
+    if (l.k === 'masthead') return len >= 50 ? 6 : len >= 20 ? 5 : len >= 12 ? 3 : 2;
+    if (l.k === 'stbd' || l.k === 'port') return len >= 50 ? 3 : len >= 12 ? 2 : 1;
+    return len >= 50 ? 3 : 2; // sternlight, towing light, all-round, special
+  }
+  // Typical detection range as a multiple of the rated minimum; past that, lights fade fast.
+  const RANGE_REACH = 2.5;
+  const rangeFactor = (d, l, len) => 1 / (1 + Math.pow(d / (ratedNm(l, len) * 1852 * RANGE_REACH), 4));
+
+  const lenCache = {};
+  function bodyLength(def) {
+    if (lenCache[def.model] == null) {
+      let lo = Infinity, hi = -Infinity;
+      for (const part of MODELS[def.model]()) for (const q of part.pts) { lo = Math.min(lo, q[2]); hi = Math.max(hi, q[2]); }
+      lenCache[def.model] = hi - lo;
+    }
+    return lenCache[def.model];
+  }
+  // Rated range (m) of the weakest light you can currently see on this configuration.
+  function weakestRangeM(cfg, beta) {
+    let m = Infinity;
+    for (const body of cfg.bodies) {
+      const len = bodyLength(body);
+      for (const l of body.lights) if (arcHard(l, beta)) m = Math.min(m, ratedNm(l, len) * 1852);
+    }
+    return m;
+  }
+
   NW.Vessels = {
     SPILL, COLORS, KINDS, MODELS, ANSWERS, CONFIGS,
     lightColor, lightHz, lightName, arcVis, arcHard, angDiff, configsFor,
+    trafficWeight, ratedNm, rangeFactor, bodyLength, weakestRangeM, RANGE_REACH,
   };
 })();

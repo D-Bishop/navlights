@@ -380,7 +380,7 @@
             const w = this.toWorld(b, l.p);
             const d = Math.hypot(w[0], w[2]);
             // Air extinction, fog, and whether the horizon/swell is in the way.
-            I *= fade * Math.exp(-d / 45000) * Math.exp(-1.2 * d * this.fogK) * this.horizonVis(w, d);
+            I *= fade * V.rangeFactor(d, l, b.len) * Math.exp(-1.2 * d * this.fogK) * this.horizonVis(w, d);
             if (I > 0.003) out.push({ w, I, c: V.lightColor(l), f: 1 - Math.exp(-d * this.fogK) });
           });
         });
@@ -399,7 +399,7 @@
           const rgb = V.COLORS[L.c].rgb;
           // The light sprites keep the same apparent brightness at any range, so scale the
           // reflection the same way (glitter ∝ 1/r² from the light, sprite would be too).
-          const k = L.I * Math.min(4, (L.w[0] * L.w[0] + L.w[2] * L.w[2]) / (650 * 650));
+          const k = L.I * Math.min(2, (L.w[0] * L.w[0] + L.w[2] * L.w[2]) / (650 * 650));
           this.lightPos.set(L.w, i * 3);
           this.lightCol.set([rgb[0] * k, rgb[1] * k, rgb[2] * k], i * 3);
         }
@@ -407,7 +407,7 @@
           cam: this.cam, tanX: this.cam.tanX, tanY: this.cam.tanY, time: this.time,
           moon, dip: Math.sqrt((2 * this.cam.pos[1]) / REFF),
           lightPos: this.lightPos, lightCol: this.lightCol, lightCount: n,
-          glint: 5, exposure: 1.0, fog: this.fogK,
+          glint: 5 * clamp(1.25 - 0.9 * this.waves.scale, 0.08, 1), exposure: 1.0, fog: this.fogK,
         });
       }
 
@@ -421,11 +421,12 @@
       for (const L of lights) {
         const s = this.project(L.w);
         if (!s) continue;
+        const sz = size * (0.55 + 0.45 * clamp(L.I, 0, 1));
         ctx.globalAlpha = clamp(L.I, 0, 1);
-        ctx.drawImage(this.sprites[L.c], s[0] - size / 2, s[1] - size / 2, size, size);
+        ctx.drawImage(this.sprites[L.c], s[0] - sz / 2, s[1] - sz / 2, sz, sz);
         if (L.f > 0.02) {
           // Fog scatters the light into a wide soft glow.
-          const big = size * (1 + 7 * L.f);
+          const big = sz * (1 + 7 * L.f);
           ctx.globalAlpha = clamp(L.I * 1.1 * L.f, 0, 1);
           ctx.drawImage(this.sprites[L.c], s[0] - big / 2, s[1] - big / 2, big, big);
         }
@@ -438,7 +439,9 @@
       const ctx = this.ctx;
       const lit = clamp(moon * 0.35 + this.reveal * 0.5, 0, 1);
       const haze = Math.exp(-v.dist / 30000) * Math.exp(-3.2 * v.dist * this.fogK);
-      const a = v.fade * 0.96 * haze;
+      // Moonless nights: hulls vanish into the dark, and sooner the farther away they are.
+      const dark = clamp(0.1 + 2.2 * moon, 0, 1) * Math.exp(-v.dist / (1500 + 12000 * moon));
+      const a = v.fade * 0.96 * haze * dark;
       const hullC = [lerp(3, 30, lit), lerp(5, 37, lit), lerp(8, 48, lit)];
       const sailC = [lerp(7, 95, lit), lerp(9, 104, lit), lerp(13, 118, lit)];
       const fill = (c) => `rgba(${c[0] | 0},${c[1] | 0},${c[2] | 0},${a})`;

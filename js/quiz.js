@@ -81,7 +81,10 @@
       this.labelSigs = new Map();
       this.seen = {};
       this.lastId = null;
+      this.traffic = 'real';
     }
+
+    setTraffic(mode) { this.traffic = mode; }
 
     setPool(level, rules) {
       this.pool = V.configsFor(level, rules);
@@ -128,7 +131,7 @@
     pickConfig() {
       const pool = this.pool.filter((c) => c.id !== this.lastId);
       // Favor answers you've seen least.
-      const weights = pool.map((c) => 1 / (1 + (this.seen[c.answer] || 0)));
+      const weights = pool.map((c) => (this.traffic === 'real' ? V.trafficWeight(c) : 1 / (1 + (this.seen[c.answer] || 0))));
       let r = Math.random() * weights.reduce((s, w) => s + w, 0);
       for (let i = 0; i < pool.length; i++) {
         r -= weights[i];
@@ -148,7 +151,9 @@
         const j = base + (Math.random() * 2 - 1) * 4;
         if (signature(cfg, j) === signature(cfg, base)) beta = j;
       }
-      const dist = cfg.dist[0] + Math.random() * (cfg.dist[1] - cfg.dist[0]);
+      // Range scales with how far her weakest visible light carries (Rule 22), not a fixed number.
+      const rated = V.weakestRangeM(cfg, beta);
+      const dist = Number.isFinite(rated) ? Math.max(400, rated * (0.6 + 0.8 * Math.random())) : cfg.dist[0];
       const questions = [this.idQuestion(cfg, beta, others)];
       if (cfg.making) questions.push(this.headingQuestion(cfg, beta));
       if (cfg.extra) questions.push(this.extraQuestion(cfg));
