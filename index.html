@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Night Watch — Navigation Lights Trainer</title>
+  <meta name="description" content="Identify vessels at night by their navigation lights, per the USCG Navigation Rules (Inland & International)." />
+  <meta name="theme-color" content="#05080d" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <canvas id="sea" aria-hidden="true"></canvas>
+  <canvas id="overlay" role="img" aria-label="A distant vessel's navigation lights at night"></canvas>
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <div>
+        <div class="brand-name">Night Watch</div>
+        <div class="brand-sub">Navigation lights · USCG Rules</div>
+      </div>
+    </div>
+    <div class="top-right">
+      <div class="stats" aria-live="polite">
+        <div class="stat stat-points"><b id="statPoints">0</b><span>points</span><i class="pts-pop" id="ptsPop" aria-hidden="true"></i></div>
+        <div class="stat"><b id="statScore">0/0</b><span>correct</span></div>
+        <div class="stat"><b id="statStreak">0</b><span>streak</span></div>
+      </div>
+      <button class="chip-btn" id="modeBtn" aria-haspopup="dialog" aria-controls="settings">
+        <span id="modeLabel">Inland · Basics</span>
+        <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <button class="icon-btn" id="guideBtn" title="Light guide (G)" aria-label="Open light guide">
+        <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M3 4.5C5.5 3.5 8 3.7 10 5c2-1.3 4.5-1.5 7-.5v11c-2.5-1-5-.8-7 .5-2-1.3-4.5-1.5-7-.5z M10 5v11" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="popover" id="settings" role="dialog" aria-label="Settings" hidden>
+    <div class="field">
+      <div class="field-label">Rules</div>
+      <div class="seg" data-setting="rules">
+        <button data-v="inland">Inland</button>
+        <button data-v="intl">International</button>
+      </div>
+    </div>
+    <div class="field">
+      <div class="field-label">Vessels</div>
+      <div class="seg" data-setting="level">
+        <button data-v="1">Basics</button>
+        <button data-v="2">+ Working</button>
+        <button data-v="3">Everything</button>
+      </div>
+    </div>
+    <div class="field">
+      <div class="field-label">Distance</div>
+      <div class="seg" data-setting="range">
+        <button data-v="near">Near</button>
+        <button data-v="mixed">Mixed</button>
+        <button data-v="horizon">Horizon</button>
+      </div>
+    </div>
+    <div class="field">
+      <div class="field-label">Fog</div>
+      <div class="seg" data-setting="fog">
+        <button data-v="clear">Clear</button>
+        <button data-v="haze">Haze</button>
+        <button data-v="fog">Fog</button>
+        <button data-v="thick">Thick</button>
+      </div>
+    </div>
+    <div class="field">
+      <div class="field-label">Moonlight <span class="field-hint" id="moonHint">dim</span></div>
+      <input type="range" id="moonRange" min="0" max="100" value="30" aria-label="Moonlight" />
+    </div>
+    <div class="field">
+      <div class="field-label">Sea <span class="field-hint" id="seaHint">moderate</span></div>
+      <input type="range" id="seaRange" min="0" max="100" value="50" aria-label="Sea state: how rough the water is and how much everything bobs" />
+    </div>
+    <div class="field row">
+      <button class="text-btn" id="resetBtn">Reset score</button>
+      <span class="field-hint" id="bestHint"></span>
+    </div>
+  </div>
+
+  <div class="zoom" aria-label="Binocular zoom">
+    <button class="icon-btn" id="zoomIn" title="Zoom in (+)" aria-label="Zoom in">+</button>
+    <button class="icon-btn" id="zoomOut" title="Zoom out (−)" aria-label="Zoom out">−</button>
+  </div>
+
+  <section class="card" id="card" aria-live="polite">
+    <div class="meta">
+      <span id="qCount">Vessel 1</span>
+      <span class="sep">·</span>
+      <span id="qStep">Question 1 of 2</span>
+      <span class="spacer"></span>
+      <span id="qRange" class="mono"></span>
+    </div>
+    <h2 id="prompt">Scanning the horizon…</h2>
+    <div class="options" id="options"></div>
+    <div class="feedback" id="feedback" hidden>
+      <p class="verdict" id="verdict"></p>
+      <p class="why" id="why"></p>
+    </div>
+    <div class="reveal" id="reveal" hidden>
+      <div class="reveal-text">
+        <div class="reveal-head">
+          <h3 id="rvTitle"></h3>
+          <span class="rule-chip" id="rvRule"></span>
+        </div>
+        <p id="rvShows"></p>
+        <p class="tip" id="rvTip" hidden></p>
+        <p class="tip warn" id="rvAlso" hidden></p>
+        <p class="light-list-key">Her lights · dimmed = hidden from where you are</p>
+        <ul class="light-list" id="rvLights"></ul>
+      </div>
+      <figure class="diagram">
+        <canvas id="diagram" aria-label="Top-down diagram of light arcs and your position"></canvas>
+        <figcaption>From above: her light arcs, and you.</figcaption>
+      </figure>
+    </div>
+    <div class="actions">
+      <span class="hint" id="hint">Press <kbd>1</kbd>–<kbd>4</kbd> to answer</span>
+      <button class="primary" id="nextBtn" hidden>Next</button>
+    </div>
+  </section>
+
+  <div class="modal" id="guide" role="dialog" aria-modal="true" aria-labelledby="guideTitle" hidden>
+    <div class="modal-panel">
+      <div class="modal-head">
+        <h2 id="guideTitle">Light guide</h2>
+        <button class="icon-btn" id="guideClose" aria-label="Close guide">✕</button>
+      </div>
+      <div class="arcs-legend">
+        <div><span class="dot" style="--c:#fff1d6"></span><b>Masthead</b> 225°, ahead to 22.5° abaft each beam</div>
+        <div><span class="dot" style="--c:#2cf59b"></span><b>Starboard</b> 112.5°, green, right side</div>
+        <div><span class="dot" style="--c:#ff3b2c"></span><b>Port</b> 112.5°, red, left side</div>
+        <div><span class="dot" style="--c:#fff1d6"></span><b>Sternlight</b> 135°, centered astern</div>
+        <div><span class="dot" style="--c:#ffb627"></span><b>Towing light</b> 135°, above the sternlight</div>
+        <div><span class="dot ring" style="--c:#c9d3e0"></span><b>All-round</b> 360°</div>
+      </div>
+      <div class="guide-list" id="guideList"></div>
+      <p class="fine">Based on the U.S. Coast Guard Navigation Rules and Regulations Handbook (International Rules / COLREGS and Inland Rules, 33 CFR 83). A study aid — always defer to the official text.</p>
+    </div>
+  </div>
+
+  <div class="nogl">Your browser couldn't start WebGL, so the sea is switched off — the lights and quiz still work.</div>
+
+  <script src="js/vessels.js"></script>
+  <script src="js/quiz.js"></script>
+  <script src="js/sea.js"></script>
+  <script src="js/scene.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
