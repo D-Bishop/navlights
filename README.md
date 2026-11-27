@@ -75,3 +75,12 @@ Plain HTML/CSS/JS, no build step, no dependencies.
 - `js/ui.js` — quiz card, settings, guide, and the arc diagram.
 
 *A study aid — always defer to the official Navigation Rules handbook.*
+
+## Changes since v1-original
+
+- Removed the tow-line follow-up question.
+- Darker nights: sky/sea light floors scale with moonlight; hulls fade out at new moon.
+- Reflections fade as the sea gets rougher.
+- **Traffic** setting: *Realistic* weights vessels by how common they are; *Even mix* keeps the old balanced drill.
+- Ranges are tied to each vessel's rated light ranges (Rule 22) instead of fixed distances; lights dim and shrink beyond them.
+- Horizon rounds are more frequent in Mixed mode, and only used when her lights could plausibly be seen that far.

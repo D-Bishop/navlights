@@ -100,7 +100,7 @@ uniform float uSea;
 uniform float uFog;   // 1 / visibility in meters (0 = clear)
 
 vec3 fogColor(float e) {
-  vec3 f = vec3(0.0098, 0.0112, 0.0132) * (0.5 + 2.4 * uMoon);
+  vec3 f = vec3(0.0098, 0.0112, 0.0132) * (0.05 + 2.8 * uMoon);
   return f * (1.0 + 0.35 * exp(-max(e, 0.0) * 25.0));
 }
 
@@ -147,12 +147,12 @@ vec3 sky(vec3 d, float az, bool detail) {
   float e = d.y + uDip;            // elevation above the sea horizon (radians, approx.)
   float ep = max(e, 0.0);
   float m = uMoon;
-  vec3 zen = vec3(0.0004, 0.0007, 0.0016) * (0.45 + 2.4 * m);
-  vec3 hor = vec3(0.0021, 0.0033, 0.0060) * (0.4 + 2.6 * m);
+  vec3 zen = vec3(0.0004, 0.0007, 0.0016) * (0.05 + 2.5 * m);
+  vec3 hor = vec3(0.0021, 0.0033, 0.0060) * (0.04 + 3.2 * m);
   float band = vnoise(vec2(az * 7.0, 1.7)) * 0.6 + vnoise(vec2(az * 23.0, 4.2)) * 0.4;
   hor *= 0.7 + 0.6 * band;
   float town = exp(-pow((az - 1.15) / 0.22, 2.0));          // faint glow of a distant town
-  hor += vec3(0.0040, 0.0023, 0.0011) * town * (1.0 - 0.5 * m);
+  hor += vec3(0.0040, 0.0023, 0.0011) * town * (0.05 + 2.2 * m) * (1.0 - 0.5 * m);
   vec3 c = mix(hor, zen, smoothstep(0.0, 0.12, ep));
   c += hor * 0.9 * exp(-ep * 60.0);
   if (detail) {
@@ -217,7 +217,7 @@ void main() {
     R.y = abs(R.y) + sqrt(varF) * 0.6;   // unresolved slopes see a little higher up the sky
     R = normalize(R);
     vec3 skyR = sky(R, atan(R.x, R.z), false);
-    vec3 deep = vec3(0.0005, 0.0010, 0.0014) * (0.5 + uMoon);
+    vec3 deep = vec3(0.0005, 0.0010, 0.0014) * (0.2 + uMoon);
     col = mix(deep, skyR, fres);
 
     // Glitter from each navigation light.

@@ -126,11 +126,12 @@
     constructor(scene) {
       this.scene = scene;
       const saved = load();
-      this.settings = Object.assign({ rules: 'inland', level: 1, moon: 30, sea: 50, range: 'mixed', fog: 'clear' }, saved.settings);
+      this.settings = Object.assign({ rules: 'inland', level: 1, moon: 30, sea: 50, range: 'mixed', fog: 'clear', traffic: 'real' }, saved.settings);
       this.stats = Object.assign({ answered: 0, correct: 0, streak: 0, best: 0, points: 0 }, saved.stats);
       this.shownPoints = this.stats.points;
       this.quiz = new NW.Quiz();
       this.quiz.setPool(this.settings.level, this.settings.rules);
+      this.quiz.setTraffic(this.settings.traffic);
       this.vesselCount = 0;
       this.metaTimer = 0;
 
@@ -174,7 +175,7 @@
       const mode = this.settings.range;
       const canHorizon = vis > 5000;
       round.horizon = false;
-      if (canHorizon && (mode === 'horizon' || (mode === 'mixed' && Math.random() < 0.3))) {
+      if (canHorizon && (mode === 'horizon' || (mode === 'mixed' && Math.random() < 0.6))) {
         // Sink her until her lowest visible light sits just over the horizon, so the swell
         // hides it now and then.
         const { REFF, DH } = NW.HORIZON;
@@ -183,8 +184,12 @@
         const margin = 0.45 + 0.35 * this.scene.waves.scale;
         const d = DH + Math.sqrt(2 * REFF * Math.max(0.25, hLow - margin));
         // In haze, only if her lights would still shine through at that range.
-        if (d <= vis * 1.4) { round.dist = d; round.horizon = true; }
+        // ...and only out to where her weakest light is still faintly visible (rated range).
+        const dmax = 1.7 * NW.Vessels.weakestRangeM(round.cfg, round.beta) * NW.Vessels.RANGE_REACH;
+        const dh = mode === 'horizon' ? Math.min(d, dmax) : d;
+        if (dh <= vis * 1.4 && dh <= dmax && dh >= DH * 0.9) { round.dist = dh; round.horizon = true; }
       }
+      if (mode === 'near' && !round.horizon) round.dist = Math.min(round.dist, 2200);
       if (!round.horizon && Number.isFinite(vis)) round.dist = Math.min(round.dist, Math.max(350, vis * 0.85));
     }
 
@@ -356,6 +361,7 @@
       this.persist();
       this.applySettingsUI();
       this.scene.fogK = 1 / FOG_VIS[this.settings.fog];
+      if (key === 'traffic') this.quiz.setTraffic(value);
       if (key === 'rules' || key === 'level') {
         this.quiz.setPool(this.settings.level, this.settings.rules);
         this.buildGuide();
